@@ -22,7 +22,7 @@ NfcAdapter nfc = NfcAdapter(pn532_i2c);
 int X_Read,Y_Read,Z_Read;
 double ax,ay,az;
 double start = 0;
-boolean fallen = false, alerted = false;
+boolean hasFallen = false, alerted = false;
 
 void setup() {
   Wire.begin(); 
@@ -41,7 +41,7 @@ void loop(){
   Z_Read = readRegister(ADXL345_ADDRESS,ADXL345_DATAZ0,ADXL345_DATAZ1);
   getAcceleration();
   detectFall();
-  if(fallen && !alerted){
+  if(hasFallen && !alerted){
     alert();
   }
 }
@@ -54,7 +54,7 @@ int readRegister(int deviceAddress,int address1,int address2){
      Wire.write(address2); // register to read
      Wire.endTransmission();
      Wire.requestFrom(deviceAddress,2); // read two byte
-     if(Wire.available()<=2){
+     if(Wire.available() <= 2){
        readValue1 = Wire.read();
        readValue2 = Wire.read();
      }
@@ -72,20 +72,38 @@ void getAcceleration() {
   az = Z_Read * gains;
 }
 
-void checkAcceleration(){
+void detectFall(){
   double prev = start;
-  if(current - prev < 1) {
-    fallen = true;
+  double current = 0;
+  if(current - prev < 1 && current == 0) {
+    hasFallen = true;
   }
 }
 
 void alert() {
-  
+    buzzerToggle();
+    cancelAlert();
 }
 
 void cancelAlert(){
-  if(fallen && nfc.tagPresent()) { 
+  if(hasFallen && nfc.tagPresent()) { 
    alerted = true;
+   reset();
   }
+}
+
+void buzzerToggle(){
+   digitalWrite(11,HIGH);
+   digitalWrite(13,HIGH);
+   delayMicroseconds(150);
+   digitalWrite(11,LOW);
+   digitalWrite(13,LOW);
+}
+
+void reset(){
+  alerted = false;
+  hasFallen = true;
+  digitalWrite(11,LOW);
+  digitalWrite(13,LOW);
 }
 
