@@ -4,10 +4,29 @@
 #include <Ndef.h>
 #include <NdefMessage.h>
 #include <NdefRecord.h>
-#include <NfcAdapter.h>
 #include <NfcTag.h>
 #include <Wire.h>
 #include <ADXL345.h>
+#include "Seeed_ws2812.h"
+
+#if 0
+#include <SPI.h>
+#include <PN532_SPI.h>
+#include <PN532.h>
+#include <NfcAdapter.h>
+
+PN532_SPI pn532spi(SPI, 10);
+NfcAdapter nfc = NfcAdapter(pn532spi);
+#else
+
+#include <Wire.h>
+#include <PN532_I2C.h>
+#include <PN532.h>
+#include <NfcAdapter.h>
+
+PN532_I2C pn532_i2c(Wire);
+NfcAdapter nfc = NfcAdapter(pn532_i2c);
+#endif
 
 #define ADXL345_DEVICE 0x00
 #define ADXL345_POWER_CTL 0x2D
@@ -18,10 +37,11 @@
 #define ADXL345_DATAZ0 0x36
 #define ADXL345_DATAZ1 0x37
 #define ADXL345_ADDRESS  0x53
+#define SIG_PIN 12
+#define LEN_NUM 5
 
+WS2812 strip = WS2812(LEN_NUM, SIG_PIN);
 ADXL345 adxl; //variable adxl is an instance of the ADXL345 library
-//PN532_I2C pn532_i2c(Wire);
-//NfcAdapter nfc = NfcAdapter(pn532_i2c);
 int X_Read, Y_Read, Z_Read;
 double ax, ay, az;
 boolean hasFallen = false, alerted = false;
@@ -29,6 +49,7 @@ boolean hasFallen = false, alerted = false;
 void setup() {
   Wire.begin();
   Serial.begin(9600);
+  nfc.begin();
   delay(100);
   adxl.powerOn();   //Turning on the ADXL345
   adxl.setActivityX(1);  //look of activity movement on this axes - 1 == on; 0 == off
@@ -43,7 +64,6 @@ void loop() {
   Y_Read = readRegister(ADXL345_ADDRESS, ADXL345_DATAY0, ADXL345_DATAY1);
   Z_Read = readRegister(ADXL345_ADDRESS, ADXL345_DATAZ0, ADXL345_DATAZ1);
   getAcceleration();
-//  buzzerToggle();
   if (hasFallen && !alerted) {
     alert();
   }
@@ -89,27 +109,29 @@ void getAcceleration() {
 void detectFall(double ax) {
   if (ax > 50000 && !hasFallen) {
     hasFallen = true;
-    Serial.println("FALL DETECTED AHHHHHHHH!");
+    Serial.println("FALL DETECTED");
   }
 }
 
 void alert() {
   while (hasFallen && !alerted) {
     buzzerToggle();
+    strip.begin();
+    lightLEDs();
     cancelAlert();
   }
 }
 
 void cancelAlert() {
-  if (hasFallen) {
+  if (hasFallen && nfc.tagPresent()) {
     alerted = true;
+    Serial.print("HELP HAS ARRIVED");
     reset();
-    //&& nfc.tagPresent()
   }
 }
 
 void buzzerToggle() {
-//  Serial.print("BUZZER HAS BEEN ACTIVATED");
+  //  Serial.print("BUZZER HAS BEEN ACTIVATED");
   digitalWrite(11, HIGH);
   digitalWrite(13, HIGH);
   delayMicroseconds(150);
@@ -117,9 +139,45 @@ void buzzerToggle() {
   digitalWrite(13, LOW);
 }
 
+int del = 50;
+int pos = 0;
+int bri = 200;
+
+void lightLEDs() {
+  strip.WS2812SetRGB(pos, bri, 0, 0);
+  strip.WS2812Send();
+  delay(del);
+
+  strip.WS2812SetRGB(pos, 0, 0, 0);
+  strip.WS2812Send();
+  delay(del);
+
+  pos = (pos + 1) % LEN_NUM;
+
+  strip.WS2812SetRGB(pos, 0, bri, 0);
+  strip.WS2812Send();
+  delay(del);
+
+  strip.WS2812SetRGB(pos, 0, 0, 0);
+  strip.WS2812Send();
+  delay(del);
+
+  pos = (pos + 1) % LEN_NUM;
+
+  strip.WS2812SetRGB(pos, 0, 0, bri);
+  strip.WS2812Send();
+  delay(del);
+
+  strip.WS2812SetRGB(pos, 0, 0, 0);
+  strip.WS2812Send();
+  delay(del);
+
+  pos = (pos + 1) % LEN_NUM;
+}
+
 void reset() {
   alerted = false;
-  hasFallen = true;
+  hasFallen = false;
   digitalWrite(11, LOW);
   digitalWrite(13, LOW);
 }
