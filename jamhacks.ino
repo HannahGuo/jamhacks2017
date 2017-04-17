@@ -53,8 +53,8 @@ void setup() {
   delay(100);
   adxl.powerOn();   //Turning on the ADXL345
   adxl.setActivityX(1);  //look of activity movement on this axes - 1 == on; 0 == off
-  adxl.setActivityY(1);
-  adxl.setActivityZ(1);
+  adxl.setActivityY(1); //look of activity movement on this axes - 1 == on; 0 == off
+  adxl.setActivityZ(1); //look of activity movement on this axes - 1 == on; 0 == off
   pinMode(11, OUTPUT);
   pinMode(13, OUTPUT);
 }
@@ -64,9 +64,7 @@ void loop() {
   Y_Read = readRegister(ADXL345_ADDRESS, ADXL345_DATAY0, ADXL345_DATAY1);
   Z_Read = readRegister(ADXL345_ADDRESS, ADXL345_DATAZ0, ADXL345_DATAZ1);
   getAcceleration();
-  if (hasFallen && !alerted) {
-    alert();
-  }
+  alert();
 }
 
 int readRegister(int deviceAddress, int address1, int address2) {
@@ -106,7 +104,7 @@ void getAcceleration() {
   detectFall(x);
 }
 
-void detectFall(double ax) {
+void detectFall(double ax) { //if the X-axis in the accelerometer is changed dramatically, begin fall triggered sequence
   if (ax > 50000 && !hasFallen) {
     hasFallen = true;
     Serial.println("FALL DETECTED");
@@ -114,24 +112,24 @@ void detectFall(double ax) {
 }
 
 void alert() {
-  while (hasFallen && !alerted) {
-    buzzerToggle();
-    strip.begin();
-    lightLEDs();
-    cancelAlert();
+  while (hasFallen && !alerted) { //while the senior is fallen and no one has been alerted
+    buzzerToggle(); //sound the buzzer
+    strip.begin(); //begin the LED strip
+    lightLEDs(); //led pattern
+    cancelAlert(); //check if the alert should be canceled
   }
 }
 
 void cancelAlert() {
-  if (hasFallen && nfc.tagPresent()) {
-    alerted = true;
-    Serial.print("HELP HAS ARRIVED");
-    reset();
+  if (hasFallen && nfc.tagPresent()) { //if the senior has fallen and the nfc tag is present
+    alerted = true; //someone has been alerted
+    Serial.println("HELP HAS ARRIVED");
+    reset(); //reset booleans
   }
 }
 
-void buzzerToggle() {
-  //  Serial.print("BUZZER HAS BEEN ACTIVATED");
+void buzzerToggle() { //sounds the buzzer
+  Serial.println("BUZZER HAS BEEN ACTIVATED");
   digitalWrite(11, HIGH);
   digitalWrite(13, HIGH);
   delayMicroseconds(150);
@@ -143,7 +141,7 @@ int del = 50;
 int pos = 0;
 int bri = 200;
 
-void lightLEDs() {
+void lightLEDs() { //lights leds
   strip.WS2812SetRGB(pos, bri, 0, 0);
   strip.WS2812Send();
   delay(del);
@@ -176,8 +174,11 @@ void lightLEDs() {
 }
 
 void reset() {
-  alerted = false;
-  hasFallen = false;
-  digitalWrite(11, LOW);
-  digitalWrite(13, LOW);
+  ax = 0; //reset the x-axis
+  alerted = false; //no one has been alerted
+  hasFallen = false; //no one has fallen
+  digitalWrite(11, LOW); //the buzzer is off
+  digitalWrite(13, LOW); //the buzzer is off
+  strip.WS2812SetRGB(0, 0, 0, 0); //turn off leds
+  strip.WS2812Send();
 }
